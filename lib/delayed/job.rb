@@ -99,7 +99,11 @@ module Delayed
         # This leads to a more even distribution of jobs across the worker processes.
         find_available( options ).each do |job|
           t = job.run_with_lock( max_run_time, worker_name )
-          return t unless t.nil?  # return if we did work (good or bad)
+          if t.nil?
+            Delayed::Worker.logger.info "* #{worker_name} No work done."
+          else
+            return t
+          end
         end
         # we didn't do any work, all 5 were not lockable
         nil
@@ -120,6 +124,7 @@ module Delayed
             else
               break  # leave if no work could be done
           end
+          Delayed::Worker.logger.info "#{options[:worker_name]} job done..."
           break if Worker.exit # leave if we're exiting
         end
 
@@ -166,6 +171,7 @@ module Delayed
       max_attempts = payload_object.send(:max_attempts) rescue MAX_ATTEMPTS
       if self.attempts < max_attempts
         time ||= Job.db_time_now + (attempts ** 4) + 5
+
         self.attempts    += 1
         self.run_at       = time unless self.attempts == max_attempts
         self.last_error   = message + "\n" + backtrace.join("\n")
@@ -180,10 +186,10 @@ module Delayed
     # Try to run one job.
     # Returns true/false (work done/work failed) or nil if job can't be locked.
     def run_with_lock(max_run_time = MAX_RUN_TIME, worker_name = Worker::DEFAULT_WORKER_NAME)
-      Delayed::Worker.logger.info "* [JOB] aquiring lock on #{name}"
+      Delayed::Worker.logger.info "* [JOB] #{worker_name} aquiring lock on #{name}"
       unless lock_exclusively!(max_run_time, worker_name)
         # We did not get the lock, some other worker process must have
-        Delayed::Worker.logger.warn "* [JOB] failed to aquire exclusive lock for #{name}"
+        Delayed::Worker.logger.warn "* [JOB] #{worker_name} - failed to aquire exclusive lock for #{name}"
         return nil # no work done
       end
 
@@ -193,7 +199,7 @@ module Delayed
         end
         destroy_successful_jobs ? destroy :
           update_attribute(:finished_at, Time.now)
-        Delayed::Worker.logger.info "* [JOB] #{name} completed after %.4f" % runtime
+        Delayed::Worker.logger.info "* [JOB] #{worker_name} -  #{name} completed after %.4f" % runtime
         return true  # did work
       rescue Exception => e
         reschedule e.message, e.backtrace
