@@ -1,4 +1,6 @@
 module Delayed
+  HIDE_BACKTRACE = true
+
   class Worker
     SLEEP = 5
     JOBS_EACH = 100 # Jobs executed in each iteration

@@ -238,7 +238,11 @@ module Delayed
     # This is a good hook if you need to report job processing errors in additional or different ways
     def log_exception(error)
       Delayed::Worker.logger.error "* [JOB] #{name} failed with #{error.class.name}: #{error.message} - #{attempts} failed attempts"
-      Delayed::Worker.logger.error(error)
+      if Delayed::HIDE_BACKTRACE
+        Delayed::Worker.logger.error error.to_s.split("\n").first
+      else
+        Delayed::Worker.logger.error error
+      end
     end
 
     # Moved into its own method so that new_relic can trace it.

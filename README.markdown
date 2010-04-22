@@ -185,6 +185,7 @@ You can invoke `rake jobs:clear` to delete all jobs in the queue.
 
 Changes
 -------
+* 2.0.4: Add `Delayed::HIDE_BACKTRACE` for showing only the first line of the errors avoiding long backtraces
 * 2.0.3: The only_for feature wasn't working at all
 * 2.0.2: Only update run_at when it's gonna be executed another time for sure (attempts < max_attempts)
 * 2.0.1: named_scope Delayed::Job.failed/finished/unfinished (jobs that have failed, have finished ok or still haven't been done)
