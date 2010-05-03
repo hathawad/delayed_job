@@ -44,11 +44,12 @@ module Delayed
     #   - job_types: constraint for selecting what jobs to execute (String or Array)
     def initialize(options={})
       [ :quiet, :name, :min_priority, :max_priority, :job_types, :only_for ].each do |attr_name|
-        send "#{attr_name}=", options[attr_name]
+        send "#{attr_name}=", options.delete(attr_name)
       end
       # Default values
       self.name  = DEFAULT_WORKER_NAME if self.name.nil?
       self.quiet = true                if self.quiet.nil?
+      @options = options
     end
 
     def start
@@ -61,7 +62,7 @@ module Delayed
         result = nil
 
         realtime = Benchmark.realtime do
-          result = Job.work_off( constraints )
+          result = Job.work_off constraints.merge(@options)
         end
 
         count = result.sum
