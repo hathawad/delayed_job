@@ -53,10 +53,9 @@ module Delayed
         Job.create(:payload_object => object, :priority => priority.to_i, :run_at => run_at)
       end
 
-      # Find a few candidate jobs to run (in case some immediately get locked by others).
-      # Return in random order prevent everyone trying to do same head job at once.
-      def find_available( options = {} )
-        limit        = options[:limit]        || 5
+      # Conditions used for find_available method. This is in a separated method to be able to override
+      # (or method chain it) more easy so you can customize the behaviour of your workers.
+      def conditions_available(options = {})
         max_run_time = options[:max_run_time] || MAX_RUN_TIME
         worker_name  = options[:worker_name]  || Worker::DEFAULT_WORKER_NAME
 
@@ -83,9 +82,14 @@ module Delayed
           conditions << "%#{options[:only_for]}%"
         end
         conditions.unshift(sql)
+      end
 
+      # Find a few candidate jobs to run (in case some immediately get locked by others).
+      # Return in random order prevent everyone trying to do same head job at once.
+      def find_available(options = {})
+        limit = options[:limit] || 5
         ActiveRecord::Base.silence do
-          find(:all, :conditions => conditions, :order => NextTaskOrder, :limit => limit)
+          find :all, :conditions => conditions_available(options), :order => NextTaskOrder, :limit => limit
         end
       end
 
