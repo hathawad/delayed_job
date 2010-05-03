@@ -14,6 +14,7 @@ begin
     s.rdoc_options = ["--main", "README.textile", "--inline-source", "--line-numbers"]
     s.extra_rdoc_files = ["README.textile"]
 
+    s.files      = Dir["lib/**/*", "MIT-LICENSE", "VERSION", "init.rb", "generators/**/*"]
     s.test_files = Dir['spec/**/*']
   end
 
