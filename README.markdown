@@ -185,6 +185,8 @@ You can invoke `rake jobs:clear` to delete all jobs in the queue.
 
 Changes
 -------
+* 2.0.7: Save the last_error field for non-repeatable jobs (the ones with self.attempts == 0)
+* 2.0.6: You can pass to worker any kind of option, and you can override conditions_avilable method to customize the behaviour and the searches of jobs to execute
 * 2.0.4: Add `Delayed::HIDE_BACKTRACE` for showing only the first line of the errors avoiding long backtraces
 * 2.0.3: The only_for feature wasn't working at all
 * 2.0.2: Only update run_at when it's gonna be executed another time for sure (attempts < max_attempts)
