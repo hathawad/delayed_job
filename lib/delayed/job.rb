@@ -24,7 +24,7 @@ module Delayed
     cattr_accessor :destroy_successful_jobs
     self.destroy_successful_jobs = false
 
-    NextTaskSQL         = '(run_at <= ? AND (locked_at IS NULL OR locked_at < ?) OR (locked_by = ?)) AND failed_at IS NULL AND finished_at IS NULL'
+    NextTaskSQL         = '(run_at <= ? AND (locked_at IS NULL OR locked_at < ?)) AND failed_at IS NULL AND finished_at IS NULL'
     NextTaskOrder       = 'priority DESC, run_at ASC'
 
     ParseObjectFromYaml = /\!ruby\/\w+\:([^\s]+)/
@@ -61,7 +61,7 @@ module Delayed
 
         sql        = NextTaskSQL.dup
         time_now   = db_time_now
-        conditions = [time_now, time_now - max_run_time, worker_name]
+        conditions = [time_now, time_now - max_run_time]
         if options[:min_priority]
           sql << ' AND (priority >= ?)'
           conditions << options[:min_priority]
