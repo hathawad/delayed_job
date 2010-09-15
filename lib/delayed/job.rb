@@ -35,11 +35,16 @@ module Delayed
 
     class << self
       # When a worker is exiting, make sure we don't have any locked jobs.
-      def clear_locks!( worker_name )
+      def clear_locks!(worker_name)
         update_all("locked_by = null, locked_at = null", ["locked_by = ?", worker_name])
       end
 
-      # Add a job to the queue
+      # Add a job to the queue. Parameters (positional):
+      #    - job
+      #    - priority (default is 0)
+      #    - run_at (timestamp, default is right now)
+      # You could ignore the first parameter but including a block, which will
+      # be taken as the job to enqueue.
       def enqueue(*args, &block)
         object = block_given? ? EvaledJob.new(&block) : args.shift
 
@@ -53,8 +58,9 @@ module Delayed
         Job.create(:payload_object => object, :priority => priority.to_i, :run_at => run_at)
       end
 
-      # Conditions used for find_available method. This is in a separated method to be able to override
-      # (or method chain it) more easy so you can customize the behaviour of your workers.
+      # Conditions used for find_available method. This is in a separated method
+      # to be able to override (or method chain it) more easy so you can
+      # customize the behaviour of your workers.
       def conditions_available(options = {})
         max_run_time = options[:max_run_time] || MAX_RUN_TIME
         worker_name  = options[:worker_name]  || Worker::DEFAULT_WORKER_NAME
@@ -104,7 +110,7 @@ module Delayed
         find_available( options ).each do |job|
           t = job.run_with_lock( max_run_time, worker_name )
           if t.nil?
-            Delayed::Worker.logger.info "* #{worker_name} No work done."
+            Delayed::Worker.logger.info "#{worker_name} No work done."
           else
             return t
           end
@@ -183,9 +189,9 @@ module Delayed
         save!
       else
         if self.attempts > 0
-          Delayed::Worker.logger.info "* [JOB] PERMANENTLY removing #{self.name} because of #{attempts} consequetive failures."
+          Delayed::Worker.logger.info "[JOB] PERMANENTLY removing #{name} because of #{attempts} consequetive failures."
         else
-          Delayed::Worker.logger.info "* [JOB] PERMANENTLY removing #{self.name} because no attempts for this job"
+          Delayed::Worker.logger.info "[JOB] PERMANENTLY removing #{name} because no attempts for this job"
         end
         if destroy_failed_jobs
           destroy
@@ -199,10 +205,9 @@ module Delayed
     # Try to run one job.
     # Returns true/false (work done/work failed) or nil if job can't be locked.
     def run_with_lock(max_run_time = MAX_RUN_TIME, worker_name = Worker::DEFAULT_WORKER_NAME)
-      Delayed::Worker.logger.info "* [JOB] #{worker_name} aquiring lock on #{name}"
       unless lock_exclusively!(max_run_time, worker_name)
         # We did not get the lock, some other worker process must have
-        Delayed::Worker.logger.warn "* [JOB] #{worker_name} - failed to aquire exclusive lock for #{name}"
+        Delayed::Worker.logger.warn "[JOB] failed to aquire exclusive lock for #{name}"
         return nil # no work done
       end
 
@@ -212,7 +217,7 @@ module Delayed
         end
         destroy_successful_jobs ? destroy :
           update_attribute(:finished_at, Time.now)
-        Delayed::Worker.logger.info "* [JOB] #{worker_name} -  #{name} completed after %.4f" % runtime
+        Delayed::Worker.logger.info "[JOB] #{name} completed after %.4f" % runtime
         return true  # did work
       rescue Exception => e
         reschedule e.message, e.backtrace
@@ -250,7 +255,7 @@ module Delayed
 
     # This is a good hook if you need to report job processing errors in additional or different ways
     def log_exception(error)
-      Delayed::Worker.logger.error "* [JOB] #{name} failed with #{error.class.name}: #{error.message} - #{attempts} failed attempts"
+      Delayed::Worker.logger.error "[JOB] #{name} failed with #{error.class.name}: #{error.message} - #{attempts} failed attempts"
       if Delayed::HIDE_BACKTRACE
         Delayed::Worker.logger.error error.to_s.split("\n").first
       else

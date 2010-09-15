@@ -20,8 +20,8 @@ module Delayed
     # Every worker has a unique name which by default is the pid of the process (so you only are
     # be able to have one unless override this in the constructor).
     #
-    #     Thread.new { Delayed::Worker.new( :name => "Worker 1" ).start }
-    #     Thread.new { Delayed::Worker.new( :name => "Worker 2" ).start }
+    #     Thread.new { Delayed::Worker.new(:name => "Worker 1").start }
+    #     Thread.new { Delayed::Worker.new(:name => "Worker 2").start }
     #
     # There are some advantages to overriding this with something which survives worker retarts:
     # Workers can safely resume working on tasks which are locked by themselves.
@@ -53,7 +53,7 @@ module Delayed
     end
 
     def start
-      say "*** Starting job worker #{name}"
+      say "===> Starting job worker #{name}"
 
       trap('TERM') { say 'Exiting...'; self.exit = true }
       trap('INT')  { say 'Exiting...'; self.exit = true }
@@ -74,16 +74,15 @@ module Delayed
         end
         break if self.exit
       end
-
     ensure
       Job.clear_locks! name
     end
 
     def say(text)
-      text = "#{name}: #{text}"
       puts text unless self.quiet
       logger.info text if logger
     end
+    alias :log :say
 
     protected
       def constraints
