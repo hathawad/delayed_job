@@ -3,8 +3,6 @@ module Delayed
 
   class Worker
     SLEEP = 5
-    JOBS_EACH = 100 # Jobs executed in each iteration
-
     DEFAULT_WORKER_NAME = "host:#{Socket.gethostname} pid:#{Process.pid}" rescue "pid:#{Process.pid}"
     # Indicates that we have catched a signal and we have to exit asap
     cattr_accessor :exit
@@ -17,8 +15,10 @@ module Delayed
       RAILS_DEFAULT_LOGGER
     end
 
-    # Every worker has a unique name which by default is the pid of the process (so you only are
-    # be able to have one unless override this in the constructor).
+    include JobLauncher
+
+    # Every worker has a unique name which by default is the pid of the process (so you should
+    # have only one unless override this in the constructor).
     #
     #     Thread.new { Delayed::Worker.new(:name => "Worker 1").start }
     #     Thread.new { Delayed::Worker.new(:name => "Worker 2").start }
@@ -31,51 +31,54 @@ module Delayed
     # Constraints for this worker, what kind of jobs is gonna execute?
     attr_accessor :min_priority, :max_priority, :job_types, :only_for
 
+    # The jobs will be group by this attribute. Each delayed_job is gonna be executed must
+    # respond to `:group_by`. The jobs will be group by that and only one job can be in
+    # execution.
+    attr_accessor :group_by
+
+    # Whether log, also, to stdout or not
     attr_accessor :quiet
 
-    # A worker will be in a loop trying to execute pending jobs, you can also set
-    # a few constraints to customize the worker's behaviour.
-    #
-    # Named parameters:
-    #   - name: the name of the worker, mandatory if you are going to create several workers
-    #   - quiet: log to stdout (besides the normal logger)
-    #   - min_priority: constraint for selecting what jobs to execute (integer)
-    #   - max_priority: constraint for selecting what jobs to execute (integer)
-    #   - job_types: constraint for selecting what jobs to execute (String or Array)
+    # Seconds to sleep between each loop running available jobs
+    attr_accessor :sleep_time
+
+    # A worker will be in a loop trying to execute pending jobs looking in the database for that
     def initialize(options={})
-      [ :quiet, :name, :min_priority, :max_priority, :job_types, :only_for ].each do |attr_name|
+      [:quiet, :name, :min_priority, :max_priority, :job_types, :only_for, :group_by,
+       :sleep_time
+      ].each do |attr_name|
         send "#{attr_name}=", options.delete(attr_name)
       end
       # Default values
       self.name  = DEFAULT_WORKER_NAME if self.name.nil?
       self.quiet = true                if self.quiet.nil?
+      self.sleep_time = SLEEP          if self.sleep_time.nil?
+
       @options = options
+      initialize_launcher
     end
 
     def start
       say "===> Starting job worker #{name}"
 
-      trap('TERM') { say 'Exiting...'; self.exit = true }
-      trap('INT')  { say 'Exiting...'; self.exit = true }
+      trap('TERM') { signal_interrupt }
+      trap('INT')  { signal_interrupt }
 
       loop do
-        result = nil
-
-        realtime = Benchmark.realtime do
-          result = Job.work_off constraints.merge(@options)
-        end
-
-        count = result.sum
-
-        if count.zero?
-          sleep(SLEEP) unless self.exit
+        if group_by
+          group_by_loop
         else
-          say "#{count} jobs processed at %.4f j/s, %d failed ..." % [count / realtime, result.last]
+          normal_loop
         end
         break if self.exit
       end
     ensure
       Job.clear_locks! name
+      say "<=== Finishing job worker #{name}"
+    end
+
+    def jobs_to_execute
+      Job.find_available constraints
     end
 
     def say(text)
@@ -85,15 +88,60 @@ module Delayed
     alias :log :say
 
     protected
-      def constraints
-        { :max_run_time => Job::MAX_RUN_TIME,
-          :worker_name  => name,
-          :n            => JOBS_EACH,
-          :limit        => 5,
-          :min_priority => min_priority,
-          :max_priority => max_priority,
-          :only_for     => only_for,
-          :job_types    => job_types }
+
+    def signal_interrupt
+      if @signal && Time.now - @signal <= 1
+        @signal = Time.now
+        report_jobs_state
+        return
+      else
+        now = Time.now
+        @signal = now
+        sleep 1
+        return if @signal != now
       end
+      say 'Exiting...'
+      self.exit = true
+    end
+
+    def sleep_for_a_little_while
+      sleep(sleep_time.to_i) unless self.exit
+    end
+
+    def group_by_loop
+      check_thread_sanity
+      jobs_to_execute.each do |job|
+        if launch job
+          log "Launched job #{job.name}, there are #{jobs_in_execution} jobs in execution"
+        end
+      end
+      sleep_for_a_little_while
+    end
+
+    def normal_loop
+      result = nil
+
+      realtime = Benchmark.realtime do
+        result = Job.work_off constraints
+      end
+
+      count = result.sum
+
+      if count.zero?
+        sleep_for_a_little_while
+      else
+        say "#{count} jobs processed at %.4f j/s, %d failed ..." % [count / realtime, result.last]
+      end
+    end
+
+    def constraints
+      {:max_run_time => Job::MAX_RUN_TIME,
+       :worker_name  => name,
+       :limit        => 5,
+       :min_priority => min_priority,
+       :max_priority => max_priority,
+       :only_for     => only_for,
+       :job_types    => job_types }.merge @options
+    end
   end
 end
