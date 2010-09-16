@@ -428,10 +428,10 @@ describe Delayed::Job do
       SimpleJob.runs.should == 1 # runs the one open job
     end
 
-    it "should find only ur own jobs unless they are locked" do
+    it "should find our own jobs regardless of locks" do
       SimpleJob.runs.should == 0
       Delayed::Job.work_off :worker_name => 'worker1'
-      SimpleJob.runs.should == 1 # runs open job, no worker1 jobs that were already locked
+      SimpleJob.runs.should == 3 # runs open job plus worker1 jobs that were already locked
     end
   end
 
@@ -453,7 +453,9 @@ describe Delayed::Job do
     it "should ignore locks when finding our own jobs" do
       SimpleJob.runs.should == 0
       Delayed::Job.work_off :worker_name => 'worker1'
-      SimpleJob.runs.should == 2 # runs open job plus worker1 jobs (unless locked)
+      SimpleJob.runs.should == 3 # runs open job plus worker1 jobs
+      # This is useful in the case of a crash/restart on worker1,
+      # but make sure multiple workers on the same host have unique names!
     end
 
   end

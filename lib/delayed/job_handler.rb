@@ -90,9 +90,14 @@ module Delayed
 
     # Whether we can or not execute this job
     def can_execute(job)
+      return false if is_already_in_execution(job)
       object = get_object(job)
       object && ! is_there_job_in_execution_for(object) &&
         jobs_in_execution < @max_active_jobs
+    end
+
+    def is_already_in_execution(job)
+      !! @jobs.values.detect {|h| h[:job].id == job.id }
     end
 
     def each_job_in_execution
