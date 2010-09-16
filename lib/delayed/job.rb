@@ -39,6 +39,14 @@ module Delayed
         update_all("locked_by = null, locked_at = null", ["locked_by = ?", worker_name])
       end
 
+      # Unlock all jobs in the database, use careful!
+      def unlock_all!
+        unfinished.each do |job|
+          job.unlock
+          job.save!
+        end
+      end
+
       # Add a job to the queue. Parameters (positional):
       #    - job
       #    - priority (default is 0)
