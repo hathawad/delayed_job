@@ -246,13 +246,7 @@ module Delayed
         # Simply resume and update the locked_at
         self.class.update_all(["locked_at = ?", now], ["id = ? and locked_by = ?", id, worker])
       end
-      if affected_rows == 1
-        self.locked_at    = now
-        self.locked_by    = worker
-        return true
-      else
-        return false
-      end
+      affected_rows == 1 && reload
     end
 
     # Unlock this job (note: not saved to DB)
