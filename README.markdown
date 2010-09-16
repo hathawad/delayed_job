@@ -16,15 +16,15 @@ It is a direct extraction from Shopify where the job table is responsible for a 
 What is this fork for?
 ----------------------
 
-My purpose with this fork is make delayed_job for flexible. That's means you can customize how your workers behave.
+My purpose with this fork is make delayed_job (1) for flexible, customize how your workers behave, and (2) use threads to launch the jobs.
 
-The common use will be to have several workers running concurrently (in one process) and each one with differents constraints so they'll run different kind of jobs.
+The common use will be to have several worker running concurrently (in one process) and each one with differents constraints so they'll run different kind of jobs. Or to have one worker launching several threads, grouping the jobs for one attribute of them so only one of each are in execution.
 
 
 Setup
 -----
 
-The library evolves around a delayed_jobs table which looks as follows:
+The library evolves around a delayed_jobs table which looks as follows (do not forget to add you own fields according to your needs):
 
     create_table :delayed_jobs, :force => true do |table|
         table.integer  :priority, :default => 0      # Allows some jobs to jump to the front of the queue
@@ -178,6 +178,17 @@ Also for a more specific restriction you can define in your job's classes a `dis
     }
 
 
+Group by property
+-----------------
+In 2.1.0 version there is a new way to operate really different from the previous model. Instead of having one (or several) worker with some restrictions, we'll have only ONE worker launching jobs in threads. The jobs will be classified by the :group_by property, and only one of each group will be in execution at a time. Let's see an example:
+
+    $ script/generate model device
+    $ script/generate migration add_device_id_to_delayed_job_table # do migration, adding t.references :device
+
+    Delayed::Worker.new :group_by => :device
+
+Our jobs will have a device method (because we have done the relationship adding the foreign_key to the table of jobs). If we have 2 jobs for the same "device" and n more jobs, each one for different devices, at first the latter ones will be executed plus one of the two jobs of the same device. After that, the other job will be executed. One at a time.
+
 Cleaning up
 -----------
 
@@ -185,6 +196,7 @@ You can invoke `rake jobs:clear` to delete all jobs in the queue.
 
 Changes
 -------
+* 2.1.0: group_by property so we have one worker with n threads, one per "group".
 * 2.0.7: Save the last_error field for non-repeatable jobs (the ones with self.attempts == 0)
 * 2.0.6: You can pass to worker any kind of option, and you can override conditions_avilable method to customize the behaviour and the searches of jobs to execute
 * 2.0.4: Add `Delayed::HIDE_BACKTRACE` for showing only the first line of the errors avoiding long backtraces
