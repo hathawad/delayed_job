@@ -196,6 +196,7 @@ You can invoke `rake jobs:clear` to delete all jobs in the queue.
 
 Changes
 -------
+* 2.1.2: add yaml fix to autoload classes and modules (thanks to collectiveidea)
 * 2.1.1: try to launch jobs locked by 'me', fixed launch the second attempt of the job without wait to the run_at timestamp (5 seg).
 * 2.1.0: group_by property so we have one worker with n threads, one per "group".
 * 2.0.7: Save the last_error field for non-repeatable jobs (the ones with self.attempts == 0)
