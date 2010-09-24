@@ -58,10 +58,10 @@ module Delayed
         puts " There are #{jobs_in_execution} jobs running."
         each_job_in_execution do |job, started_at, thread|
           duration = Duration.new(Time.now - started_at)
-          puts "\tJob #{job.id}: #{job}"
+          puts "\tJob #{job.id}: #{job.name}"
           puts "\t   Running on #{thread} (#{thread.status}) for #{duration}"
         end
-        puts " #{'=' * (margin * 2 + title + 2)} "
+        puts " #{'=' * (margin * 2 + title.size + 2)} "
       else
         puts "\n\tThere is no jobs in execution right now!"
       end
