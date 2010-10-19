@@ -72,6 +72,7 @@ module Delayed
         end
         break if self.exit
       end
+      kill_threads!
     ensure
       Job.clear_locks! name
       say "<=== Finishing job worker #{name}"

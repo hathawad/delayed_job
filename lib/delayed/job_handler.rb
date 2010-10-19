@@ -1,3 +1,5 @@
+require 'thread'
+
 # Handle asynchronously launch of jobs, one per grouped value
 #
 # It needs the following method to be defined:
@@ -32,6 +34,7 @@ module Delayed
     def initialize_launcher(max_active_jobs=MAX_ACTIVE_JOBS)
       @max_active_jobs = max_active_jobs
       @jobs = {}
+      @sem = Mutex.new
     end
 
     # Launch the job in a thread and register it. Returns whether the job
@@ -84,6 +87,12 @@ module Delayed
       @jobs.size
     end
 
+    def kill_threads!
+      each_job_in_execution do |job, started_at, thread|
+        puts "Killing #{job.name}"
+        thread.terminate
+      end
+    end
     # ^ public methods -------------------------------------------------------
     private
     # v private methods ------------------------------------------------------
@@ -111,15 +120,19 @@ module Delayed
     end
 
     def unregister_job(job)
-      @jobs.delete get_object(job)
+      @sem.synchronize do
+        @jobs.delete get_object(job)
+      end
     end
 
     def register_job(job, thread)
-      @jobs[get_object(job)] = {
-        :thread     => thread,
-        :job        => job,
-        :started_at => Time.now
-      }
+      @sem.synchronize do
+        @jobs[get_object(job)] = {
+          :thread     => thread,
+          :job        => job,
+         :started_at => Time.now
+        }
+      end
     end
 
     def get_object(job)
