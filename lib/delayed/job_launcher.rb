@@ -87,6 +87,12 @@ module Delayed
       @jobs.size
     end
 
+    def jobs_ids_in_execution
+      ret = []
+      each_job_in_execution {|job| ret << job.id }
+      ret
+    end
+
     def kill_threads!
       each_job_in_execution do |job, started_at, thread|
         puts "Killing #{job.name}"

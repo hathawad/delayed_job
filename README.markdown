@@ -196,6 +196,7 @@ You can invoke `rake jobs:clear` to delete all jobs in the queue.
 
 Changes
 -------
+* 2.1.5: When findings jobs discard in the sql query the ones are executing right now (constraint :unless => [list of ids])
 * 2.1.4: semaphore when un/register jobs
 * 2.1.3: typo when showing report in the daemon (ctrl+c, ctrl+c)
 * 2.1.2: add yaml fix to autoload classes and modules (thanks to collectiveidea)

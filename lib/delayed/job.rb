@@ -95,15 +95,22 @@ module Delayed
           sql << ' AND name LIKE ?'
           conditions << "%#{options[:only_for]}%"
         end
+
+        if options[:unless]
+          sql << " AND (#{primary_key} NOT IN (?))"
+          conditions << options[:unless]
+        end
+
         conditions.unshift(sql)
       end
 
       # Find a few candidate jobs to run (in case some immediately get locked by others).
       # Return in random order prevent everyone trying to do same head job at once.
       def find_available(options = {})
-        limit = options[:limit] || 5
+        find_opt = {:conditions => conditions_available(options), :order => NextTaskOrder}
+        find_opt[:limit] = options[:limit] if options[:limit]
         ActiveRecord::Base.silence do
-          find :all, :conditions => conditions_available(options), :order => NextTaskOrder, :limit => limit
+          find :all, find_opt
         end
       end
 

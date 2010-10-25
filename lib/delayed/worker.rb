@@ -79,7 +79,7 @@ module Delayed
     end
 
     def jobs_to_execute
-      Job.find_available constraints
+      Job.find_available constraints.merge(:unless => jobs_ids_in_execution)
     end
 
     def say(text)
@@ -138,7 +138,6 @@ module Delayed
     def constraints
       {:max_run_time => Job::MAX_RUN_TIME,
        :worker_name  => name,
-       :limit        => 5,
        :min_priority => min_priority,
        :max_priority => max_priority,
        :only_for     => only_for,
