@@ -96,7 +96,7 @@ module Delayed
           conditions << "%#{options[:only_for]}%"
         end
 
-        if options[:unless]
+        if options[:unless] && options[:unless].is_a?(Array) && options[:unless].size > 0
           sql << " AND (#{primary_key} NOT IN (?))"
           conditions << options[:unless]
         end
