@@ -34,21 +34,25 @@ module Delayed
     def initialize_launcher(max_active_jobs=MAX_ACTIVE_JOBS)
       @max_active_jobs = max_active_jobs
       @jobs = {}
-      @sem = Mutex.new
+      @mutex = Mutex.new
     end
 
     # Launch the job in a thread and register it. Returns whether the job
     # has been launched or not.
     def launch(job)
       return false unless can_execute job
+      s = Semaphore.new
       t = Thread.new do
+        s.wait
         begin
           job.run_with_lock Job::MAX_RUN_TIME, name
         ensure
           unregister_job job
+          job.connection.release_connection rescue nil
         end
       end
       register_job job, t
+      s.signal
       return true
     end
 
@@ -126,13 +130,14 @@ module Delayed
     end
 
     def unregister_job(job)
-      @sem.synchronize do
+      @mutex.synchronize do
         @jobs.delete get_object(job)
+        log "No jobs right now!" if @jobs.size == 0
       end
     end
 
     def register_job(job, thread)
-      @sem.synchronize do
+      @mutex.synchronize do
         @jobs[get_object(job)] = {
           :thread     => thread,
           :job        => job,
