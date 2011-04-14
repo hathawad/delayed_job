@@ -16,7 +16,7 @@ It is a direct extraction from Shopify where the job table is responsible for a 
 What is this fork for?
 ----------------------
 
-My purpose with this fork is make delayed_job (1) for flexible, customize how your workers behave, and (2) use threads to launch the jobs.
+My purpose with this fork is make delayed_job (1) more flexible, customize how your workers behave, and (2) use threads to launch the jobs.
 
 The common use will be to have several worker running concurrently (in one process) and each one with differents constraints so they'll run different kind of jobs. Or to have one worker launching several threads, grouping the jobs for one attribute of them so only one of each are in execution.
 
