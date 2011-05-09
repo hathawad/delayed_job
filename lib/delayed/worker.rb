@@ -2,7 +2,7 @@ module Delayed
   HIDE_BACKTRACE = true
 
   class Worker
-    SLEEP = 5
+    SLEEP = 60
     DEFAULT_WORKER_NAME = "host:#{Socket.gethostname} pid:#{Process.pid}" rescue "pid:#{Process.pid}"
     # Indicates that we have catched a signal and we have to exit asap
     cattr_accessor :exit
@@ -70,9 +70,14 @@ module Delayed
         else
           normal_loop
         end
-        break if self.exit
+        if self.exit
+          log "Exit loop"
+          break
+        end
       end
       kill_threads!
+    rescue Exception => e
+      log "ERROR on worker loop: #{e}"
     ensure
       Job.clear_locks! name
       say "<=== Finishing job worker #{name}"
@@ -106,16 +111,17 @@ module Delayed
     end
 
     def sleep_for_a_little_while
+      log "Sleep #{sleep_time.to_i}"
       sleep(sleep_time.to_i) unless self.exit
+      log "Sleep done"
     end
 
     def group_by_loop
       check_thread_sanity
-      jobs_to_execute.each do |job|
-        if launch job
-          log "Launched job #{job.name}, there are #{jobs_in_execution} jobs in execution"
-        end
-      end
+      jobs = jobs_to_execute
+      log "There are #{jobs.size} jobs to be executed (#{jobs_in_execution})"
+      report_jobs_state
+      jobs.each{|j| launch j }
       sleep_for_a_little_while
     end
 

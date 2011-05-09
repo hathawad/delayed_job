@@ -43,9 +43,13 @@ module Delayed
       return false unless can_execute job
       s = Semaphore.new
       t = Thread.new do
+        log "##{Thread.current.object_id} before wait"
         s.wait
+        log "###{Thread.current.object_id} after wait"
         begin
           job.run_with_lock Job::MAX_RUN_TIME, name
+        rescue Exception => e
+          log "ERROR: #{e}"
         ensure
           unregister_job job
           job.connection.release_connection rescue nil
@@ -53,6 +57,7 @@ module Delayed
       end
       register_job job, t
       s.signal
+      log "Launched job #{job.name}, there are #{jobs_in_execution} jobs in execution"
       return true
     end
 
@@ -61,24 +66,23 @@ module Delayed
       if jobs_in_execution > 0
         margin = 20
         title = "Jobs In Execution"
-        puts "\n #{'='*margin} #{title} #{'='*margin} "
-        puts " There are #{jobs_in_execution} jobs running."
+        log "#{'='*margin} #{title} #{'='*margin} "
+        log " There are #{jobs_in_execution} jobs running."
         each_job_in_execution do |job, started_at, thread|
           duration = Duration.new(Time.now - started_at)
-          puts "\tJob #{job.id}: #{job.name}"
-          puts "\t   Running on #{thread} (#{thread.status}) for #{duration}"
+          log "\tJob #{job.id}: #{job.name}"
+          log "\t   Running on #{thread} (#{thread.status}) for #{duration}"
         end
-        puts " #{'=' * (margin * 2 + title.size + 2)} "
+        log "#{'=' * (margin * 2 + title.size + 2)} "
       else
-        puts "\n\tThere is no jobs in execution right now!"
+        log "\n\tThere is no jobs in execution right now!"
       end
     end
 
     # Sanity check of dead threads for precaution, but probably won't be
     # necessary
     def check_thread_sanity
-      @jobs.values.each do |v|
-        thread = v[:thread]
+      each_job_in_execution do |job, started_at, thread|
         unless thread.alive?
           log "Dead thread? Terminate it!, This should not be happening"
           thread.terminate
@@ -93,13 +97,13 @@ module Delayed
 
     def jobs_ids_in_execution
       ret = []
-      each_job_in_execution {|job| ret << job.id }
+      each_job_in_execution {|job, x, xx| ret << job.id }
       ret
     end
 
     def kill_threads!
       each_job_in_execution do |job, started_at, thread|
-        puts "Killing #{job.name}"
+        log "Killing #{job.name}"
         thread.terminate
       end
     end
@@ -109,10 +113,22 @@ module Delayed
 
     # Whether we can or not execute this job
     def can_execute(job)
-      return false if is_already_in_execution(job)
+      if is_already_in_execution(job)
+        log "#{job.name}: already in execution"
+        return false
+      end
       object = get_object(job)
-      object && ! is_there_job_in_execution_for(object) &&
-        jobs_in_execution < @max_active_jobs
+      if ! object
+        log "No object #{job.inspect}"
+        return false
+      elsif is_there_job_in_execution_for(object)
+        log "#{job.name}: already a job in execution for #{object}"
+        return false
+      elsif jobs_in_execution >= @max_active_jobs
+        log "#{job.name}: there are already many jobs in execution"
+        return false
+      end
+      true
     end
 
     def is_already_in_execution(job)
@@ -130,20 +146,24 @@ module Delayed
     end
 
     def unregister_job(job)
+      log "<-- Let's unregister #{job.name} (#{job.id}) (#{get_object(job)})"
       @mutex.synchronize do
         @jobs.delete get_object(job)
         log "No jobs right now!" if @jobs.size == 0
       end
+      log "<== Unregistered #{job.name} (#{job.id}) (#{get_object(job)})"
     end
 
     def register_job(job, thread)
+      log "--> Let's register #{job.name} (#{job.id}) (#{get_object(job)})"
       @mutex.synchronize do
         @jobs[get_object(job)] = {
           :thread     => thread,
           :job        => job,
-         :started_at => Time.now
+          :started_at => Time.now
         }
       end
+      log "==> Registered #{job.name} (#{job.id}) (#{get_object(job)})"
     end
 
     def get_object(job)

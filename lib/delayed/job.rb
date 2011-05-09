@@ -228,7 +228,11 @@ module Delayed
 
       begin
         runtime =  Benchmark.realtime do
-          Timeout.timeout(max_run_time.to_i) { invoke_job }
+          Timeout.timeout(max_run_time.to_i) {
+            Delayed::Worker.logger.debug "-> #{Thread.current.object_id} invoke_job"
+            invoke_job
+            Delayed::Worker.logger.debug "<- #{Thread.current.object_id} invoke_job"
+          }
         end
         destroy_successful_jobs ? destroy :
           update_attribute(:finished_at, Time.now)
