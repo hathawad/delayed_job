@@ -196,6 +196,7 @@ You can invoke `rake jobs:clear` to delete all jobs in the queue.
 
 Changes
 -------
+* 2.1.8: Typo in 2.1.7, I hate myself for this things :(
 * 2.1.7: Fixed Very unsual concurrent issue when launching jobs
 * 2.1.6: Bug when :unless option was nil
 * 2.1.5: When findings jobs discard in the sql query the ones are executing right now (constraint :unless => [list of ids])

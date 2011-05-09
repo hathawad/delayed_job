@@ -1,6 +1,6 @@
 autoload :ActiveRecord, 'activerecord'
 
-require File.dirname(__FILE__) + 'semaphore'
+require File.dirname(__FILE__) + '/semaphore'
 require File.dirname(__FILE__) + '/delayed/message_sending'
 require File.dirname(__FILE__) + '/delayed/performable_method'
 require File.dirname(__FILE__) + '/delayed/yaml_ext'
