@@ -117,6 +117,7 @@ module Delayed
     end
 
     def group_by_loop
+      clean_pool_connections
       check_thread_sanity
       jobs = jobs_to_execute
       log "There are #{jobs.size} jobs to be executed (#{jobs_in_execution})"
@@ -139,6 +140,13 @@ module Delayed
       else
         say "#{count} jobs processed at %.4f j/s, %d failed ..." % [count / realtime, result.last]
       end
+    end
+
+    def clean_pool_connections
+      # Workaround for windows (at least xp and 2003 server)
+      # With mysql we have overflow of connections
+      ActiveRecord::Base.clear_active_connections!
+      ActiveRecord::Base.verify_active_connections!
     end
 
     def constraints

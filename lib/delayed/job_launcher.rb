@@ -52,7 +52,6 @@ module Delayed
           log "ERROR: #{e}"
         ensure
           unregister_job job
-          job.connection.release_connection rescue nil
         end
       end
       register_job job, t
